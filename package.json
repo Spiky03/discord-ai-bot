@@ -6,7 +6,13 @@
   "scripts": {
     "start": "node dist/index.js",
     "build": "tsc",
-    "dev": "ts-node src/index.ts"
+    "dev": "ts-node src/index.ts",
+    "test": "npm run test:lint && npm run test:prettier && npm run test:jest",
+    "test:jest": "jest",
+    "test:lint": "eslint src",
+    "test:prettier": "prettier --check src",
+    "lint": "eslint src --fix",
+    "prettier": "prettier --write src"
   },
   "keywords": [
     "discord",
@@ -26,12 +32,15 @@
     "@eslint/js": "^9.20.0",
     "@jest/globals": "^29.7.0",
     "@types/eslint__js": "^8.42.3",
+    "@types/jest": "^29.5.14",
     "@types/node": "^20.11.24",
     "eslint": "^9.20.1",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.3",
     "globals": "^15.15.0",
+    "jest": "^29.7.0",
     "prettier": "^3.5.0",
+    "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.2",
     "typescript-eslint": "^8.24.0"
