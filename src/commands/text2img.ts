@@ -1,4 +1,3 @@
-import axios from "axios";
 import { CommandInteraction, SlashCommandBuilder } from "discord.js";
 import { LogLevel } from "meklog";
 

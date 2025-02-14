@@ -1,4 +1,4 @@
-import { CommandInteraction, Message, OmitPartialGroupDMChannel, TextChannel } from "discord.js";
+import { CommandInteraction, TextChannel } from "discord.js";
 
 // split text so it fits in a Discord message
 export function splitText(str: string, length: number) {

@@ -3,7 +3,6 @@ import {
   Message,
   OmitPartialGroupDMChannel,
   SlashCommandBuilder,
-  TextChannel,
 } from "discord.js";
 import { LogLevel } from "meklog";
 
@@ -82,7 +81,6 @@ async function chat(fetch = false) {
       const decoder = new TextDecoder();
       let part = "";
       let message = "";
-      let wholeMessage = "";
       const queue: Buffer[] = [];
       let processing = false;
       const messages: (OmitPartialGroupDMChannel<Message<boolean>> | Message)[] = [];
@@ -107,7 +105,6 @@ async function chat(fetch = false) {
             const data = JSON.parse(text);
             part += data.response;
             message += data.response;
-            wholeMessage += data.response;
             if (part.length >= 100 || isEnd) {
               if (message.length > 1900) {
                 messages.push(
