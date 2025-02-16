@@ -2,6 +2,7 @@ import { CommandInteraction, SlashCommandBuilder } from "discord.js";
 import { LogLevel } from "meklog";
 
 import { log } from "../bot";
+import { MAX_FILES_LENGTH } from "../utils/consts";
 import { getModels, makeRequest, METHOD } from "../utils/service";
 
 export type Text2ImgOptions = {
@@ -82,7 +83,7 @@ async function text2img(fetch = false) {
           .setDescription("Iterations")
           .setRequired(false)
           .setMinValue(1)
-          .setMaxValue(4)
+          .setMaxValue(5)
       )
       .addNumberOption(option =>
         option

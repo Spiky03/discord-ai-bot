@@ -7,6 +7,7 @@ import {
 import { LogLevel } from "meklog";
 
 import { log } from "../bot";
+import { MAX_MESSAGE_LENGTH, MESSAGE_CHUNK_SIZE } from "../utils/consts";
 import { getModels, makeRequest, METHOD } from "../utils/service";
 import { replySplitMessage } from "../utils/utils";
 
@@ -105,8 +106,8 @@ async function chat(fetch = false) {
             const data = JSON.parse(text);
             part += data.response;
             message += data.response;
-            if (part.length >= 100 || isEnd) {
-              if (message.length > 1900) {
+            if (part.length >= MESSAGE_CHUNK_SIZE || isEnd) {
+              if (message.length > MAX_MESSAGE_LENGTH - MESSAGE_CHUNK_SIZE) {
                 messages.push(
                   messages.length === 0
                     ? await interaction.followUp(message)
@@ -130,14 +131,13 @@ async function chat(fetch = false) {
         }
 
         processing = false;
-        if (isEnd) {
-          if (message.length > 0) {
-            if (messages.length === 0) {
-              await interaction.editReply(message);
-            } else {
-              await messages[messages.length - 1].edit(message);
-            }
+        if (isEnd && message.length > 0) {
+          if (messages.length === 0) {
+            await interaction.editReply(message);
+            return;
           }
+
+          await messages[messages.length - 1].edit(message);
         }
       }
     } catch (error) {
