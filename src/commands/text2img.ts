@@ -134,8 +134,19 @@ async function handleText2Img(interaction: CommandInteraction) {
     const images = response.images.map(image => Buffer.from(image, "base64"));
     await interaction.editReply({
       content: `Here are images from prompt \`${prompt}\``,
-      files: images,
+      files: images.slice(0, MAX_FILES_LENGTH),
     });
+
+    if (images.length > MAX_FILES_LENGTH) {
+      let message = await interaction.followUp({
+        files: images.slice(MAX_FILES_LENGTH, MAX_FILES_LENGTH * 2),
+      });
+      for (let i = 2; i < Math.ceil(images.length / MAX_FILES_LENGTH); i++) {
+        message = await message.reply({
+          files: images.slice(MAX_FILES_LENGTH * i, MAX_FILES_LENGTH * (i + 1)),
+        });
+      }
+    }
   } catch (error) {
     log(LogLevel.Error, error);
     await interaction.editReply({
