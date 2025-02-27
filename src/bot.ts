@@ -73,13 +73,13 @@ client.on(Events.InteractionCreate, async interaction => {
     return;
   }
 
-  commands.forEach(async command => {
+  for (const command of commands) {
     const name = (await command()).command.name;
     if (name === commandName) {
       (await command()).handler(interaction);
       return;
     }
-  });
+  }
 });
 
 client.login(process.env.DISCORD_TOKEN);
