@@ -23,7 +23,7 @@ The project started thanks to [mekb](https://github.com/mekb-turtle).
 - Create a RAG to extract information from _PDFs_ and/or docs
 - Implement [OpenWebUI](https://github.com/open-webui/open-webui) interactions (web search, youtube loader)
 - ? Implement [fabric](https://github.com/danielmiessler/fabric) integration (patterns, youtube video extraction if needed)
-- Fix streaming issues `/chat ... stream: True`
+- Fix streaming issues `/chat ... stream: True` (handle race - `async-mutex`)
 
 ### Set-up instructions (TO BE REVIEWED)
 
