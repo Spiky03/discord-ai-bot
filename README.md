@@ -1,6 +1,6 @@
 <div align="center">
    <h1>Discord AI Bot</h1>
-   <h2>Repository is now in maintanance mode - rewriting project to Typescript</h2>
+   <h2>Repository is now in maintenance mode - rewriting project to Typescript</h2>
    <h3 align="center">Discord bot to interact with <a href="https://github.com/jmorganca/ollama">Ollama</a> and <a href="https://github.com/AUTOMATIC1111/stable-diffusion-webui">AUTOMATIC1111 Stable Diffusion</a> as a chatbot</h3>
    <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/238samixd/discord-ai-bot?style=social">
 </div>
