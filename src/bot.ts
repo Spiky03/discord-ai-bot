@@ -53,7 +53,7 @@ client.once(Events.ClientReady, async bot => {
 });
 
 client.on(Events.MessageCreate, async message => {
-  if (message.author.bot || !message.author.id || message.author.id == client.user?.id) return;
+  if (message.author.bot || !message.author.id || message.author.id === client.user?.id) return;
 });
 
 client.on(Events.InteractionCreate, async interaction => {

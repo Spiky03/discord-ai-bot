@@ -80,7 +80,7 @@ async function chat(fetch = false) {
       }
 
       const decoder = new TextDecoder();
-      let part = "";
+      let chunkBuffer = "";
       let message = "";
       const queue: Buffer[] = [];
       let processing = false;
@@ -104,9 +104,9 @@ async function chat(fetch = false) {
           const text = decoder.decode(chunk, { stream: true });
           try {
             const data = JSON.parse(text);
-            part += data.response;
+            chunkBuffer += data.response;
             message += data.response;
-            if (part.length >= MESSAGE_CHUNK_SIZE || isEnd) {
+            if (chunkBuffer.length >= MESSAGE_CHUNK_SIZE || isEnd) {
               if (message.length > MAX_MESSAGE_LENGTH - MESSAGE_CHUNK_SIZE) {
                 messages.push(
                   messages.length === 0
@@ -122,7 +122,7 @@ async function chat(fetch = false) {
                 } else {
                   await messages[messages.length - 1].edit(message);
                 }
-                part = "";
+                chunkBuffer = "";
               }
             }
           } catch (parseError) {
