@@ -9,7 +9,6 @@ The project started thanks to [mekb](https://github.com/mekb-turtle).
 
 ## Roadmap
 
-- Setup channels ids to allow the bot only in specific channels
 - Implement multiple servers support (copying commands?)
 - Check (and fix if necessary) `Dockerfile` and `docker-compose` setup
 - Review installation and usage instructions

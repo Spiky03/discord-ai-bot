@@ -69,7 +69,8 @@ client.on(Events.InteractionCreate, async interaction => {
     commandName !== "channels"
   ) {
     await interaction.reply({
-      content: "This command is not available in this channel.",
+      content:
+        "This command is not available in this channel. Please check the available channels using `/channels`.",
       ephemeral: true,
     });
     return;
