@@ -8,18 +8,27 @@ import { LogLevel } from "meklog";
 
 import { log } from "../bot";
 import { MAX_COMMAND_CHOICES, MAX_MESSAGE_LENGTH, MESSAGE_CHUNK_SIZE } from "../utils/consts";
+import { HistoryMessage, historyService } from "../utils/historyService";
 import { getModelInfo, getModels, makeRequest, METHOD } from "../utils/service";
 import { parseEnvString, replySplitMessage } from "../utils/utils";
 
+interface OllamaMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
 export type ChatOptions = {
   model: string;
-  prompt: string;
-  system?: string;
+  messages: OllamaMessage[];
   stream?: boolean;
 };
 
-interface OllamaResponse {
-  response: string;
+interface OllamaChatResponse {
+  message: {
+    role: string;
+    content: string;
+  };
+  done: boolean;
   on: (event: string, listener: (chunk: Buffer) => void) => void;
 }
 
@@ -48,7 +57,6 @@ async function chat(fetch = false) {
       option.setName("prompt").setDescription("Prompt to chat with Ollama").setRequired(true)
     );
 
-  // If too many models, use a regular string input instead of choices
   if (tooManyModels) {
     command.addStringOption(option =>
       option
@@ -71,7 +79,6 @@ async function chat(fetch = false) {
     );
   }
 
-  // Add the stream option
   command.addBooleanOption(option =>
     option.setName("stream").setDescription("(Experimental) Stream response").setRequired(false)
   );
@@ -83,17 +90,22 @@ async function chat(fetch = false) {
 
   async function handleChat(interaction: CommandInteraction) {
     const { options } = interaction;
+    const userId = interaction.user.id;
 
     const prompt = options.get("prompt")!.value as string;
     const model = options.get("model")!.value as string;
     const stream = (options.get("stream")?.value as boolean) ?? false;
 
-    // Check if system prompt should be used
     const useSystemMessage = process.env.USE_SYSTEM !== "false";
     const useModelSystemMessage = process.env.USE_MODEL_SYSTEM === "true";
     const systemPrompts = [];
 
-    // Only use model system prompt if USE_MODEL_SYSTEM is true
+    const userMessage: HistoryMessage = { role: "user", content: prompt };
+    const userHistory = historyService.getUserHistory(userId);
+    const messages: OllamaMessage[] = [...userHistory, userMessage];
+
+    historyService.addMessage(userId, userMessage);
+
     if (useModelSystemMessage) {
       const modelInfo = await getModelInfo(SERVER!, "/api/show", model);
       if (modelInfo && modelInfo.system) {
@@ -101,42 +113,58 @@ async function chat(fetch = false) {
       }
     }
 
-    // Only use system prompt if USE_SYSTEM is true
     if (useSystemMessage) {
       systemPrompts.push(parseEnvString(process.env.SYSTEM_PROMPT || ""));
+    }
+
+    if (systemPrompts.length > 0) {
+      const systemMessage: OllamaMessage = {
+        role: "system",
+        content: systemPrompts.join("\n"),
+      };
+
+      messages.unshift(systemMessage);
     }
 
     await interaction.deferReply();
     try {
       const requestData: ChatOptions = {
-        prompt,
         model,
+        messages,
         stream,
       };
 
-      if (systemPrompts.length > 0) {
-        requestData.system = systemPrompts.join("\n");
-      }
+      log(
+        LogLevel.Debug,
+        `Sending chat request with ${messages.length} messages for user ${userId}`
+      );
 
-      const response: OllamaResponse = await makeRequest(
+      const response: OllamaChatResponse = await makeRequest(
         SERVER!,
-        "/api/generate",
+        "/api/chat",
         METHOD.POST,
         requestData,
         stream
       );
 
       if (!stream) {
-        await replySplitMessage(interaction, response.response, true);
+        const responseContent = response.message?.content || "";
+
+        const assistantMessage: HistoryMessage = {
+          role: "assistant",
+          content: responseContent,
+        };
+        historyService.addMessage(userId, assistantMessage);
+
+        await replySplitMessage(interaction, responseContent, true);
         return;
       }
 
       const decoder = new TextDecoder();
-      let chunkBuffer = "";
       let message = "";
       const queue: Buffer[] = [];
       let processing = false;
-      const messages: (OmitPartialGroupDMChannel<Message<boolean>> | Message)[] = [];
+      const streamMessages: (OmitPartialGroupDMChannel<Message<boolean>> | Message)[] = [];
 
       response.on("data", async (chunk: Buffer) => {
         queue.push(chunk);
@@ -144,37 +172,51 @@ async function chat(fetch = false) {
       });
 
       response.on("end", async () => {
-        await processQueue(true); // it still misses last several chunks
+        await processQueue(true); // It may miss the last chunks
+
+        if (message) {
+          const assistantMessage: HistoryMessage = {
+            role: "assistant",
+            content: message,
+          };
+          historyService.addMessage(userId, assistantMessage);
+        }
       });
 
       async function processQueue(isEnd = false) {
         if (processing) return;
         processing = true;
 
+        let chunkBuffer = "";
         while (queue.length > 0) {
           const chunk = queue.shift()!;
+
           try {
             const data = JSON.parse(decoder.decode(chunk, { stream: true }));
-            const text = data.response;
-            chunkBuffer += text;
-            message += text;
-            if (chunkBuffer.length >= MESSAGE_CHUNK_SIZE || isEnd) {
-              if (message.length > MAX_MESSAGE_LENGTH - MESSAGE_CHUNK_SIZE) {
-                messages.push(
-                  messages.length === 0
-                    ? await interaction.followUp(message)
-                    : await messages[messages.length - 1].reply({
-                        content: message,
-                      })
-                );
-                message = "";
-              } else {
-                if (messages.length === 0) {
-                  await interaction.editReply(message);
+            const text = data.message?.content || "";
+
+            if (text) {
+              chunkBuffer += text;
+              message += text;
+
+              if (chunkBuffer.length >= MESSAGE_CHUNK_SIZE || isEnd) {
+                if (message.length > MAX_MESSAGE_LENGTH - MESSAGE_CHUNK_SIZE) {
+                  streamMessages.push(
+                    streamMessages.length === 0
+                      ? await interaction.followUp(message)
+                      : await streamMessages[streamMessages.length - 1].reply({
+                          content: message,
+                        })
+                  );
+                  message = "";
                 } else {
-                  await messages[messages.length - 1].edit(message);
+                  if (streamMessages.length === 0) {
+                    await interaction.editReply(message);
+                  } else {
+                    await streamMessages[streamMessages.length - 1].edit(message);
+                  }
+                  chunkBuffer = "";
                 }
-                chunkBuffer = "";
               }
             }
           } catch (parseError) {
@@ -184,20 +226,21 @@ async function chat(fetch = false) {
 
         processing = false;
         if (isEnd && message.length > 0) {
-          if (messages.length === 0) {
+          if (streamMessages.length === 0) {
             await interaction.editReply(message);
             return;
           }
 
-          await messages[messages.length - 1].edit(message);
+          await streamMessages[streamMessages.length - 1].edit(message);
         }
       }
     } catch (error) {
-      log(LogLevel.Error, error);
+      log(LogLevel.Error, `Error in chat command: ${error}`);
       await interaction.editReply({
         content: "Failed to generate response",
       });
     }
   }
 }
+
 export default chat;
