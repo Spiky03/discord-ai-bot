@@ -9,7 +9,14 @@ import { LogLevel } from "meklog";
 
 import { log } from "../bot";
 import { MAX_COMMAND_CHOICES, MAX_MESSAGE_LENGTH, MESSAGE_CHUNK_SIZE } from "../utils/consts";
-import { downloadAttachment, getModelInfo, getModels, makeRequest, METHOD } from "../utils/service";
+import {
+  downloadAttachment,
+  extractTextFromPDF,
+  getModelInfo,
+  getModels,
+  makeRequest,
+  METHOD,
+} from "../utils/service";
 import { parseEnvNumber, parseEnvString, replySplitMessage } from "../utils/utils";
 
 export type GenerateOptions = {
@@ -115,6 +122,11 @@ async function generate(fetch = false) {
         attachment.contentType?.includes("sh") ||
         attachment.contentType?.includes("php")
     );
+
+    const pdfAttachments = attachments.filter(attachment =>
+      attachment.contentType?.includes("pdf")
+    );
+
     const imageAttachments = attachments.filter(attachment =>
       attachment.contentType?.startsWith("image")
     );
@@ -134,37 +146,74 @@ async function generate(fetch = false) {
       systemPrompts.push(parseEnvString(process.env.SYSTEM || ""));
     }
 
-    let userInput = prompt;
+    const textContents: string[] = [];
     if (textAttachments.length > 0) {
       try {
         await Promise.all(
-          textAttachments.map(async (attachment, i) => {
-            const response = await downloadAttachment(attachment.url);
-            userInput += `\n${i + 1}. File - ${attachment.name}:\n${response.data}`;
+          textAttachments.map(async attachment => {
+            const response = await downloadAttachment(attachment.url, "text");
+            let content = response.data;
+
+            if (content.length > 8000) {
+              log(
+                LogLevel.Warning,
+                `Text file attachment truncated from ${response.data.length} characters`
+              );
+              content = content.substring(0, 8000) + "\n\n[File truncated due to size]";
+            }
+
+            textContents.push(`\n\n📄 Text File - ${attachment.name}:\n${content}`);
           })
         );
       } catch (error) {
-        log(LogLevel.Error, `Failed to download text files: ${error}`);
+        log(LogLevel.Error, `Failed to process text files: ${error}`);
         await interaction.editReply({
-          content: `Failed to download attachments. Error: ${error instanceof Error ? error.message : String(error)}`,
+          content: `Failed to process text attachments. Error: ${error instanceof Error ? error.message : String(error)}`,
         });
         return;
       }
     }
 
-    const images: string[] = [];
+    const pdfTexts: string[] = [];
+    if (pdfAttachments.length > 0) {
+      try {
+        await Promise.all(
+          pdfAttachments.map(async attachment => {
+            const response = await downloadAttachment(attachment.url, "arraybuffer");
+            const pdfBuffer = Buffer.from(response.data);
+            let pdfText = await extractTextFromPDF(pdfBuffer);
+
+            if (pdfText.length > 8000) {
+              log(LogLevel.Warning, `PDF content truncated from ${pdfText.length} characters`);
+              pdfText = pdfText.substring(0, 8000) + "\n\n[PDF content truncated due to size]";
+            }
+
+            pdfTexts.push(`\n\n📑 PDF Document - ${attachment.name}:\n${pdfText}`);
+            log(LogLevel.Info, `Successfully extracted text from PDF ${attachment.name}`);
+          })
+        );
+      } catch (error) {
+        log(LogLevel.Error, `Failed to process PDF files: ${error}`);
+        await interaction.editReply({
+          content: `Failed to process PDF attachments. Error: ${error instanceof Error ? error.message : String(error)}`,
+        });
+        return;
+      }
+    }
+
+    const imagesBase64: string[] = [];
     if (imageAttachments.length > 0) {
       try {
         await Promise.all(
           imageAttachments.map(async attachment => {
-            const response = await downloadAttachment(attachment.url, true);
-            images.push(Buffer.from(response.data, "binary").toString("base64"));
+            const response = await downloadAttachment(attachment.url, "arraybuffer");
+            imagesBase64.push(Buffer.from(response.data).toString("base64"));
           })
         );
       } catch (error) {
         log(LogLevel.Error, `Failed to download image files: ${error}`);
         await interaction.editReply({
-          content: `Failed to download attachments. Error: ${error instanceof Error ? error.message : String(error)}`,
+          content: `Failed to download image attachments. Error: ${error instanceof Error ? error.message : String(error)}`,
         });
         return;
       }
@@ -173,16 +222,22 @@ async function generate(fetch = false) {
     try {
       const requestData: GenerateOptions = {
         model,
-        prompt: userInput,
+        prompt: prompt + textContents.join("") + pdfTexts.join(""),
         stream,
-        images,
       };
 
       if (systemPrompts.length > 0) {
         requestData.system = systemPrompts.join("\n");
       }
 
-      log(LogLevel.Debug, `Sending generate request for user ${userId}`);
+      if (imagesBase64.length > 0) {
+        requestData.images = imagesBase64;
+      }
+
+      log(
+        LogLevel.Debug,
+        `Sending generate request for user ${userId} with ${textAttachments.length} text file(s), ${pdfAttachments.length} PDF file(s), and ${imageAttachments.length} image(s)`
+      );
 
       const response: OllamaResponse = await makeRequest(
         SERVER!,
