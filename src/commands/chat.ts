@@ -114,7 +114,7 @@ async function chat(fetch = false) {
     }
 
     if (useSystemMessage) {
-      systemPrompts.push(parseEnvString(process.env.SYSTEM_PROMPT || ""));
+      systemPrompts.push(parseEnvString(process.env.SYSTEM || ""));
     }
 
     if (systemPrompts.length > 0) {
