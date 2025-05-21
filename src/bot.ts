@@ -77,9 +77,10 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 
   for (const command of commands) {
-    const name = (await command()).command.name;
+    const commandResult = await command();
+    const name = commandResult.command.name;
     if (name === commandName) {
-      (await command()).handler(interaction);
+      commandResult.handler(interaction);
       return;
     }
   }
