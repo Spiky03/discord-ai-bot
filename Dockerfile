@@ -1,7 +1,10 @@
-FROM node:20
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
-RUN npm i --omit=dev --no-package-lock
-USER node
 
-CMD ["node","./src/index.js"]
+CMD ["python", "main.py"]

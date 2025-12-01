@@ -16,9 +16,9 @@ compose-stop:
 compose-down:
 	docker compose  -p discord-ai down
 
-#  Run the local node project with make and without docker
+#  Run the local python project with make and without docker
 local:
-	$(MAKE) setup_env && npm i && node ./src/index.js
+	$(MAKE) setup_env && pip install -r requirements.txt && python main.py
 
 # This copies the .env.example (source) file to the .env (destination) file location
 # The -n or no clobber means it will not overwrite the .env file if it already exists.

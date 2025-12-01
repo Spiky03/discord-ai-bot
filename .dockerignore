@@ -1,5 +1,10 @@
-package-lock.json
-pnpm-lock.yaml
-pnpm-lock.yml
-node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
 .env
+.venv
+.git
+.gitignore
+Dockerfile
+docker-compose.yml
+README.md
